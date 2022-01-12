@@ -8,11 +8,13 @@ shino.js is a Discord bot for the Utter Discord server.
 - spotify search -> ytdl, incl playlists.
 - Scheduled server icon change
 - Auto generate .json files
+- Embed command
+- Command toggle for playing through a default playlist
 
 ## Dependencies:
 shino.js requires [Node.js](https://nodejs.org/) v16.6.0 or higher.
 
-To build this bot on Windows you're gonna need Microsoft Visual Studio 2015 Build Tools, the easiest way to get that is by going to the [Visual Studio Downloads Page](https://my.visualstudio.com/Downloads) and looking for "Visual C++ Build Tools for Visual Studio 2015 with Update 3".
+To build this bot on Windows you're gonna need Microsoft Visual Studio 2015 Build Tools, the easiest way to get that is by going to the [Visual Studio downloads page](https://my.visualstudio.com/Downloads) and looking for "Visual C++ Build Tools for Visual Studio 2015 with Update 3".
 
 ## How to use
 - Git pull the repository and download dependencies using npm by typing `npm install` in your terminal.

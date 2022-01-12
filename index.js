@@ -3,7 +3,7 @@ const { Client, Collection, Intents, Guild } = require("discord.js");
 const { token } = require('./secrets.json');
 const packageJSON = require("./package.json");
 
-const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES]});
+const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES]});
 
 // Grabs all the commands from the /commands folder
 client.commands = new Collection();
