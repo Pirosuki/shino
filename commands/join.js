@@ -4,28 +4,26 @@ const { joinVoiceChannel } = require('@discordjs/voice');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("join")
-        .setDescription("Make shino join the channel you're currently connected to"),
+        .setDescription("Have shino join the channel you're currently connected to"),
 
     async execute(interaction) {
+        const voiceChannelId = interaction.member.voice.channelId;
         const guildId = interaction.guildId;
-        const adapterCreator = interaction.user;
+        const voiceAdapterCreator = interaction.guild.voiceAdapterCreator;
 
-        if (interaction.member.voice) {
-            const voiceChannelId = interaction.member.voice.channelId
-
-            console.log(guildId + " " + adapterCreator + " " + voiceChannelId)
-
+        if (voiceChannelId !== null) {
             const connection = joinVoiceChannel({
                 channelId: voiceChannelId,
                 guildId: guildId,
-                adapterCreator: adapterCreator,
+                adapterCreator: voiceAdapterCreator,
             });
+
+            await interaction.reply("Joined channel <#" + voiceChannelId + ">");
+            console.log("[" + interaction.guild.name + "] " + "Joined voice as requsted by " + interaction.user.tag);
         }
         else {
-            await interaction.reply("user not in voice channel");
-            console.log("user not in voice channel")
+            await interaction.reply({content: "Couldn't join as you're not currently in a voice channel", ephemeral: true });
+            console.log("[" + interaction.guild.name + "] " + "Failed to join voice channel as " + interaction.user.tag + " was not in a voice channel")
         }
-
-        console.log("[" + interaction.guild.name + "] " + "Joined voice as requsted by " + interaction.user.tag);
     },
 };
