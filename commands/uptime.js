@@ -7,7 +7,7 @@ module.exports = {
 
     async execute(interaction) {
         // Grabs uptime in seconds from process
-        var uptime = process.uptime() + 7200;
+        var uptime = process.uptime();
 
         // Formats uptime into a string, calling the formatTime function while doing so.
         var uptimeForm = "shino has been running for " + formatTime(uptime) + ".";
