@@ -1,21 +1,48 @@
 // Misc imports
 const fs = require('fs');
+const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const packageJSON = require("./package.json");
 
-// Imports bot token from "secrets.json" file, keep this secure.
+// Imports bot token from "secrets.json" file, keep this secure
 const { token } = require('./secrets.json');
 
 // Bot client, check intents if behaving unexpectedly
 const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]});
 
-// Grabs all the commands from the /commands folder
+// Collection for commands
 client.commands = new Collection();
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+
+// Function for getting all command files
+function getCommands(dir, fileList) {
+    // Gets list of files in specified dir
+    files = fs.readdirSync(dir);
+
+    // Variable for files
+    fileList = [];
+
+    files.forEach(file => {
+        // Checks if file is folder
+        if (fs.statSync(dir + '/' + file).isDirectory()) {
+            // If it is, check for more files in that folder
+            fileList = getCommands(dir + '/' + file, fileList);
+        }
+        else {
+            // If not, add file to file list
+            fileList.push(path.join(dir, '/', file));
+        }
+    })
+
+    // Filters out non .js files
+    let commands = fileList.filter(file => file.endsWith('.js'));
+
+    // Returns list of command files
+    return commands;
+}
 
 // ^ Registers all the commands in the bot
-for (const file of commandFiles) {
-	const command = require(`./commands/${file}`);
+for (const file of getCommands('./commands')) {
+	const command = require('./' + file);
 	client.commands.set(command.data.name, command);
 }
 
