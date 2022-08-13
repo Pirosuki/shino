@@ -48,6 +48,7 @@ for (const file of getCommands('./commands')) {
 
 // Bot connected and ready trigger
 client.once('ready', () => {
+    // Puts list of connected guilds into readable list
     const guildList = client.guilds.cache.map(guild => guild.name).join(", ");
 
     // Lists Nodejs and Disordjs versions for debug purposes
@@ -57,6 +58,7 @@ client.once('ready', () => {
     console.log("Successfully connected as " + client.user.tag + " to " + guildList + ".");
 });
 
+// Simple error catcher
 client.on('error', error => {
     console.log(error);
 })
@@ -73,7 +75,9 @@ client.on('interactionCreate', async interaction => {
     // Attempts to execute function of specific command
     try {
 		await command.execute(interaction);
-	} catch (error) {
+	}
+    // Catch error if one happens, maybe add a function to save error to log file here
+    catch (error) {
 		console.error(error);
 		await interaction.reply({ content: 'Command errored out, sorry!', ephemeral: true });
 	}
