@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
+const { getVoiceConnection } = require('@discordjs/voice');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -7,22 +8,17 @@ module.exports = {
 
     async execute(interaction) {
         // Get voice connection
-        const connection = getVoiceConnection(interaction.guild.id);
+        let connection = getVoiceConnection(interaction.guild.id);
 
-        // Get audio player
-        const player = connection.state.subscription.player;
-
-        // Checks that the connection is valid and that the connection matches between user and bot
+        // Checks if bot is connected to a voice channel
         if (!connection || interaction.member.voice.channelId !== connection.joinConfig.channelId) {
             // If not then return error
             await interaction.reply({ content: "We have to be in the same voice channel for you to use that command", ephemeral: true });
         }
-        // Check if player is idle
-        else if (player.Idle) {
-            // If it is then return error
-            await interaction.reply({ content: "Nothing is currently playing", ephemeral: true });
-        }
         else {
+            // If it is, grab audio player
+            const player = connection.state.subscription.player;
+
             // Stop audio playback
             player.stop();
 
