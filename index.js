@@ -1,48 +1,49 @@
+// Misc imports
 const fs = require('fs');
-const { Client, Collection, Intents, Guild } = require("discord.js");
-const { token } = require('./secrets.json');
+const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const packageJSON = require("./package.json");
 
-const client = new Client({intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES]});
+// Imports bot token from "secrets.json" file, keep this secure.
+const { token } = require('./secrets.json');
+
+// Bot client, check intents if behaving unexpectedly
+const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]});
 
 // Grabs all the commands from the /commands folder
 client.commands = new Collection();
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 
-// ^
+// ^ Registers all the commands in the bot
 for (const file of commandFiles) {
 	const command = require(`./commands/${file}`);
 	client.commands.set(command.data.name, command);
 }
 
+// Bot connected and ready trigger
 client.once('ready', () => {
     const guildList = client.guilds.cache.map(guild => guild.name).join(", ");
 
+    // Lists Nodejs and Disordjs versions for debug purposes
     console.log("Running Node.js version " + process.versions.node + " and Discord.js version " + packageJSON.dependencies["discord.js"] + ".");
+
+    // Log connected
     console.log("Successfully connected as " + client.user.tag + " to " + guildList + ".");
 });
 
-// Text responses
-client.on('messageCreate', async message => {
-    if (message.author.id === client.user.id) return;
-
-    if (message.content.toUpperCase().includes("BREAD")) {
-        await message.reply("🥖");
-        console.log("[" + message.guild.name + "] " + "Donated some bread to the starving " + message.author.tag);
-    }
-    else if (message.content.toUpperCase().includes("BAGUETTE")) {
-        await message.reply("🍞");
-        console.log("[" + message.guild.name + "] " + "Donated some fake bread to the starving " + message.author.tag);
-    }
+client.on('error', error => {
+    console.log(error);
 })
 
 // Command responses
 client.on('interactionCreate', async interaction => {
+    // Quick exit if there's no matching command
     if (!interaction.isCommand()) return;
 
+    // ^
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
 
+    // Attempts to execute function of specific command
     try {
 		await command.execute(interaction);
 	} catch (error) {
@@ -51,4 +52,5 @@ client.on('interactionCreate', async interaction => {
 	}
 });
 
+// This line starts the bot
 client.login(token)
