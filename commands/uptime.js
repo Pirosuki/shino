@@ -6,32 +6,59 @@ module.exports = {
         .setDescription("Shows shino's uptime"),
 
     async execute(interaction) {
-        var uptime = process.uptime();
-        var uptimeForm = "shino has been running for " + formatTime(uptime);
+        // Grabs uptime in seconds from process
+        var uptime = process.uptime() + 7200;
+
+        // Formats uptime into a string, calling the formatTime function while doing so.
+        var uptimeForm = "shino has been running for " + formatTime(uptime) + ".";
+
+        // Sends the result to the caller
         await interaction.reply(uptimeForm);
 
-        console.log("[" + interaction.guild.name + "] " + "Sent shino's uptime to " + interaction.user.tag);
+        // Logs event
+        console.log("[" + interaction.guild.name + "] " + interaction.user.tag + " checked shino's uptime.");
     },
 };
 
+// Function for formatting seconds into hours, minutes and seconds
 function formatTime(uptime) {
-    uptime = Math.round(uptime)
-    var seconds, minutes, hours;
-    seconds = minutes = hours = "";
+    // Defines variable for final value
+    let uptimeFormatted;
 
-    if (uptime < 60) {
-        seconds = Math.floor(uptime % 60) + " second(s).";
+    // Round down to reduce frustration when the script decides not to work
+    uptime = Math.round(uptime);
+    
+    // Extract hours
+    let hours = Math.floor(uptime / 3600);
+    if (hours) {
+        hours = hours + " hours";
     }
-    else if (uptime < (60 * 60)) {
-        minutes = Math.floor(uptime / 60) + " minute(s) and ";
-        seconds = Math.floor(uptime % 60) + " second(s).";
+
+    // Extract minutes
+    let minutes = Math.floor(uptime % 3600 / 60);
+    if (minutes) {
+        minutes = minutes + " minutes";
+    }
+
+    // Extract seconds
+    let seconds = uptime % 60;
+    if (seconds) {
+        seconds = seconds + " seconds";
+    }
+
+    // Filters out empty values
+    let uptimeValues = [hours, minutes, seconds].filter(Boolean);
+    
+    // Formats into a more readable string
+    if (uptimeValues.length > 1) {
+        // Separates all values with ", " except the last one who instead gets " and "
+        uptimeFormatted = uptimeValues.slice(0, -1).join(', ') + " and " + uptimeValues.slice(-1);
     }
     else {
-        hours = Math.floor(uptime / (60 * 60)) + " hour(s), "
-        minutes = Math.floor((uptime % (60 * 60)) / 60) + " minute(s), ";
-        seconds = Math.floor((uptime % ((60 * 60) / 60) / 60)) + " second(s).";
+        // If there's only one value then it just gets thrown in there
+        uptimeFormatted = uptimeValues;
     }
-
-    var timeFormatted = hours + minutes + seconds;
-    return timeFormatted;
+    
+    // Returns string to caller
+    return uptimeFormatted;
 }
