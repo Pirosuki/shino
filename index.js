@@ -76,10 +76,10 @@ client.on('interactionCreate', async interaction => {
     try {
 		await command.execute(interaction);
 	}
-    // Catch error if one happens, maybe add a function to save error to log file here
+    // Catch error if one happens, maybe add a function to save error to log file here // FIX //
     catch (error) {
 		console.error(error);
-		await interaction.reply({ content: 'Command errored out, sorry!', ephemeral: true });
+		await interaction.reply({ content: "Command errored out, sorry!", ephemeral: true });
 	}
 });
 
