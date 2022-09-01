@@ -13,6 +13,7 @@ shino is a Discord bot for the Utter discord server.
 - timer after queue runs out incase anyone wants to add another
 - Lower volume when people speak
 - /wrongsong
+- Fix streams
 
 ## Dependencies:
 shino requires [Node.js](https://nodejs.org/) v16.6.0 or higher.

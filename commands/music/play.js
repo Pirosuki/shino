@@ -158,13 +158,16 @@ async function playNext(guildQueue) {
     // Sets currentSong value
     guildQueue.currentSong = song;
 
-    // Get song info
+    // Get song info https://github.com/fent/node-ytdl-core/issues/902 highestaudio
     let ytdlURL = ytdl(song.id, {
-        filer: 'audioonly',
+        filter: "audioonly",
+        fmt: "mp3",
+        highWaterMark: 1 << 62,
+        liveBuffer: 1 << 62,
         dlChunkSize: 0,
         bitrate: 128,
-        quality: 'highestaudio',
-      });
+        quality: "lowestaudio",
+    });
     ytdlURL.on('error', err => {
         // catch url related errors
         console.log(err); 
