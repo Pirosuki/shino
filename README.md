@@ -2,12 +2,9 @@
 shino is a Discord bot for the Utter discord server.
 
 ## To do:
-- ytdl playlist search
 - spotify search -> ytdl, incl playlists.
 - Auto disconnect if no user in voice
 - Clear channel messages with confirmation
-- timer after queue runs out incase anyone wants to add another
-- /wrongsong
 
 ## Dependencies:
 shino requires [Node.js](https://nodejs.org/) v16.6.0 or higher.
@@ -16,7 +13,7 @@ To build this bot on Windows you're gonna need Microsoft Visual Studio 2015 Buil
 
 ## How to use
 - Git pull the repository and download dependencies using npm by typing `npm install` in your terminal.
-- Create a file called `secrets.json` and enter your bot and server information in there as specified below; **DO NOT SHARE THIS INFORMATION WITH ANYONE, IT IS CALLED SECRETS FOR A REASON!**
+- Create a file called `secrets.json` and enter your bot and server information in there as specified below; **DO NOT SHARE THIS INFORMATION WITH ANYONE!**
 ```
 {
     "clientId": "Enter clientId here",
