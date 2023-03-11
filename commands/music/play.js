@@ -4,6 +4,10 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { createAudioPlayer, createAudioResource, joinVoiceChannel, NoSubscriberBehavior, getVoiceConnection, AudioPlayerStatus } = require('@discordjs/voice');
 const { EmbedBuilder } = require('discord.js');
 
+// Imports logger
+const logger = require ('../../logger.js');
+
+const ytpl = require('ytpl');
 const ytdl = require('ytdl-core');
 const ytsr = require('ytsr');
 
@@ -16,10 +20,10 @@ const queue = new Map();
 module.exports = {
     data: new SlashCommandBuilder()
         .setName("play")
-        .setDescription("Play audio from a specific url")
+        .setDescription("Play a youtube track or album")
         .addStringOption(option =>
-            option.setName("song")
-                .setDescription("url or search terms for song")
+            option.setName("title")
+                .setDescription("url or search terms for track")
                 .setRequired(true)),
 
     async execute(interaction) {
@@ -32,68 +36,87 @@ module.exports = {
                     channelId: interaction.member.voice.channelId,
                     guildId: interaction.guildId,
                     adapterCreator: interaction.guild.voiceAdapterCreator,
+                    /*debug: true,*/
+                });
+
+                // Temporary error fix, check https://github.com/discordjs/discord.js/issues/9185#issuecomment-1459083216
+                const networkStateChangeHandler = (oldNetworkState, newNetworkState) => {
+                    const newUdp = Reflect.get(newNetworkState, 'udp');
+                    clearInterval(newUdp?.keepAliveInterval);
+                  }
+                  connection.on('stateChange', (oldState, newState) => {
+                    Reflect.get(oldState, 'networking')?.off('stateChange', networkStateChangeHandler);
+                    Reflect.get(newState, 'networking')?.on('stateChange', networkStateChangeHandler);
                 });
             }
 
-            // Grabs song entered in command
-            let song = interaction.options.getString('song');
+            // Grabs terms entered in command
+            let terms = interaction.options.getString('title');
 
             // Attempts to figure out origin of entered url
-            // Youtube playlist
-            if (song.includes('youtube.com/playlist?list=')) {
-                await interaction.reply("Identified YouTube playlist link, currently unsupported however.");
-                console.log("[" + interaction.guild.name + "] " + "Failed to play url requested by " + interaction.user.tag + " as it wasn't from a supported website");
+
+            // Youtube album
+            if (terms.includes('youtube.com/playlist?list=')) {
+                albumYoutube(interaction, terms);
             }
             // Youtube track
-            if (song.includes('youtu.be/') || song.includes('youtube.com/watch?v=')) {
-                if (song.includes('?t')) {
-                    song = song.slice(0, song.indexOf('?t'));
+            else if (terms.includes('youtu.be/') || terms.includes('youtube.com/watch?v=')) {
+                if (terms.includes('?t')) {
+                    terms = terms.slice(0, terms.indexOf('?t'));
                 }
-                trackYoutube(song, interaction.user.tag, interaction);
+                trackYoutube(interaction, terms);
             }
-            // SoundCloud playlist
-            else if (song.includes('soundcloud.com/') || song.includes('/sets/')) {
-                await interaction.reply("Identified SoundCloud playlist link, currently unsupported however.");
+            // SoundCloud album
+            else if (terms.includes('soundcloud.com/') || terms.includes('/sets/')) {
+                await interaction.reply("Identified SoundCloud album link, currently unsupported however.");
                 console.log("[" + interaction.guild.name + "] " + "Failed to play url requested by " + interaction.user.tag + " as it wasn't from a supported website");
             }
             // SoundCloud track
-            else if (song.includes('soundcloud.com/')) {
+            else if (terms.includes('soundcloud.com/')) {
                 await interaction.reply("Identified SoundCloud track link, currently unsupported however.");
                 console.log("[" + interaction.guild.name + "] " + "Failed to play url requested by " + interaction.user.tag + " as it wasn't from a supported website");
             }
 
-            // Bandcamp playlist
-            else if (song.includes('bandcamp.com/album/')) {
+            // Bandcamp album
+            else if (terms.includes('bandcamp.com/album/')) {
                 await interaction.reply("Identified Bandcamp album link, currently unsupported however.");
                 console.log("[" + interaction.guild.name + "] " + "Failed to play url requested by " + interaction.user.tag + " as it wasn't from a supported website");
             }
             // Bandcamp track
-            else if (song.includes('bandcamp.com/track/')) {
+            else if (terms.includes('bandcamp.com/track/')) {
                 await interaction.reply("Identified Bandcamp track link, currently unsupported however.");
                 console.log("[" + interaction.guild.name + "] " + "Failed to play url requested by " + interaction.user.tag + " as it wasn't from a supported website");
             }
 
-            // Spotify playlist
-            else if (song.includes('open.spotify.com/playlist/') || song.includes('open.spotify.com/album/')) {
-                await interaction.reply("Identified Spotify playlist link, currently unsupported however.");
+            // Spotify album
+            else if (terms.includes('open.spotify.com/album/') || terms.includes('open.spotify.com/album/')) {
+                await interaction.reply("Identified Spotify album link, currently unsupported however.");
                 console.log("[" + interaction.guild.name + "] " + "Failed to play url requested by " + interaction.user.tag + " as it wasn't from a supported website");
                 return
             }
             // Spotify track
-            else if (song.includes('open.spotify.com/track/')) {
+            else if (terms.includes('open.spotify.com/track/')) {
                 await interaction.reply("Identified Spotify track link, currently unsupported however.");
                 console.log("[" + interaction.guild.name + "] " + "Failed to play url requested by " + interaction.user.tag + " as it wasn't from a supported website");
             }
 
             // If no matches, default to searching for entered value
             else {
-                searchYouTube(song, interaction.user.tag, interaction);
+                searchYouTube(interaction, terms);
             }
         }
         else {
             // If not reply with error
             await interaction.reply({ content: "You have to be in a voice channel that allows music playback to use this command.", ephemeral: true });
         }
+    },
+
+    async getQueue(interaction) {
+        // Grabs current queue
+        let guildQueue = queue.get(interaction.guild.id);
+
+        // Returns the queue
+        return guildQueue;
     },
 };
 
@@ -116,11 +139,12 @@ async function createPlayer(interaction) {
     let guildQueue = {
         player: player,
         connection: connection,
+        timeout: false,
         voiceChannel: interaction.member.voice.channel,
         textChannel: interaction.channel,
         nowPlayingMsg: undefined,
-        currentSong: undefined,
-        songs: [],
+        currentTrack: undefined,
+        tracks: [],
         loop: false,
         shuffle: false
     }
@@ -129,37 +153,37 @@ async function createPlayer(interaction) {
     queue.set(interaction.guild.id, guildQueue);
 }
 
-// Function to play the next song in queue
+// Function to play the next track in queue
 async function playNext(guildQueue) {
     // Check whether shuffle is on
     if (guildQueue.shuffle) {
-        // If it is, grab a random song
+        // If it is, grab a random track
         // Creates random number
         let index = Math.floor(
-            Math.random() * guildQueue.songs.length
+            Math.random() * guildQueue.tracks.length
         )
 
-        // Grabs song based on that number
-        song = guildQueue.songs[index];
+        // Grabs track based on that number
+        track = guildQueue.tracks[index];
 
-        // Removes that song from the queue
-        guildQueue.songs.splice(index, 1);
+        // Removes that track from the queue
+        guildQueue.tracks.splice(index, 1);
     }
     else {
-        // If not, grab the latest song and remove it from the queue
-        song = guildQueue.songs.shift();
+        // If not, grab the latest track and remove it from the queue
+        track = guildQueue.tracks.shift();
     }
 
-    // Readds song to end of queue if loop == true
-    if (guildQueue.looping) {
-        guildQueue.songs.push(song);
+    // Readds track to end of queue if loop == true
+    if (guildQueue.loop) {
+        guildQueue.tracks.push(track);
     }
 
-    // Sets currentSong value
-    guildQueue.currentSong = song;
+    // Sets currentTrack value
+    guildQueue.currentTrack = track;
 
-    // Get song info https://github.com/fent/node-ytdl-core/issues/902 highestaudio
-    let ytdlURL = ytdl(song.id, {
+    // Get track info https://github.com/fent/node-ytdl-core/issues/902 highestaudio
+    let ytdlURL = ytdl(track.id, {
         filter: "audioonly",
         fmt: "mp3",
         highWaterMark: 1 << 62,
@@ -170,100 +194,107 @@ async function playNext(guildQueue) {
     });
     ytdlURL.on('error', err => {
         // catch url related errors
-        console.log(err); 
+        logger.error(err); 
     });
 
-    // Creates audio resource with song info
+    // Creates audio resource with track info
     resource = createAudioResource(ytdlURL, { inlineVolume: true });
 
     // Sets a more livable volume
-    resource.volume.setVolume(0.1);
+    resource.volume.setVolume(config.music.volume / 100);
 
-    // Plays the song
+    // Plays the track
     guildQueue.player.play(resource);
 }
 
-// Function for announcing the current playing song
+// Function for announcing the current playing track
 async function announcePlaying(guildQueue) {
-    // Formats song title, url and stuff into embed
-    const currentSongEmbed = new EmbedBuilder()
-            .setTitle(guildQueue.currentSong.title)
-            .setURL('https://youtu.be/' + guildQueue.currentSong.id + '/')
-            .setThumbnail(guildQueue.currentSong.thumbnail)
-            .addFields(
-                { name: 'Title', value: guildQueue.currentSong.title },
-                { name: 'Requested by', value: guildQueue.currentSong.user }
-            );
+    // Formats track title, url and stuff into embed
+    const currentTrackEmbed = new EmbedBuilder()
+    .setTitle(guildQueue.currentTrack.title)
+    .setURL('https://youtu.be/' + guildQueue.currentTrack.id + '/')
+    .setThumbnail(guildQueue.currentTrack.thumbnail)
+    .addFields(
+        { name: 'Title', value: guildQueue.currentTrack.title },
+        { name: 'Requested by', value: guildQueue.currentTrack.user }
+    );
 
     // Checks if a now playing message currently exists
     if (guildQueue.nowPlayingMsg) {
         // If it does, delete it
-        guildQueue.nowPlayingMsg.delete();
+        try {
+            guildQueue.nowPlayingMsg.delete();
+        }
+        catch (err) {
+            console.log("failed to delete message line 231");
+        }
     }
 
     // Send a new now playing message and save it to the guild queue
-    guildQueue.nowPlayingMsg = await guildQueue.textChannel.send({ embeds: [currentSongEmbed] });
+    guildQueue.nowPlayingMsg = await guildQueue.textChannel.send({ embeds: [currentTrackEmbed] });
 }
 
-async function trackYoutube(url, userTag, interaction) {
+async function albumYoutube(interaction, url) {
+    try {
+        interaction.reply("am attempting, pls no break :)")
+        ytpl(url, { limit: Infinity })
+        .then(albumInfo => {
+            albumInfo.items.forEach(trackInfo => {
+                // Send to queue function
+                if (trackInfo.isPlayable) {
+                    // Format track info into variable
+                    const track = {
+                        title: trackInfo.title,
+                        id: trackInfo.id,
+                        user: interaction.user.tag,
+                        inAlbum: true,
+                        thumbnail: trackInfo.bestThumbnail.url.slice(0, trackInfo.bestThumbnail.url.indexOf('.jpg') + 4)
+                    };
+
+                    queueYouTube(interaction, track);
+                }
+            });
+        })
+    }
+    catch(error) {
+        // Log error
+        console.error(error);
+    }    
+}
+
+async function trackYoutube(interaction, url) {
     // Gets info of specified youtube url
     ytdl.getInfo(url)
-    .catch(err => {
-        // Catch eventual url errors
-        console.log(err);
-    })
     .then(info => {
         // Grab returned info
-        let songInfo = info.player_response.videoDetails;
+        let trackInfo = info.player_response.videoDetails;
 
         // Grab thumbnail url
-        thumbnail = songInfo.thumbnail.thumbnails[songInfo.thumbnail.thumbnails.length - 1];
+        thumbnail = trackInfo.thumbnail.thumbnails[trackInfo.thumbnail.thumbnails.length - 1];
 
-        // Format all song info into a variable
-        const song = {
-            title: songInfo.title,
-            id: songInfo.videoId,
-            user: userTag,
-            inPlaylist: false,
+        // Format all track info into a variable
+        const track = {
+            title: trackInfo.title,
+            id: trackInfo.videoId,
+            user: interaction.user.tag,
+            inAlbum: false,
             thumbnail: thumbnail.url
         };
     
         // Send to queue function
-        queueYouTube(song, interaction);
+        queueYouTube(interaction, track);
+    })
+    .catch(error => {
+        // Log error
+        logger.error(error);
+
+        // Inform user
+        interaction.reply({ content: "Couldn't find a video with that url, sorry", ephemeral: true });
     })
 }
-
 
 // Function for handling youtube searches
-function searchYouTube(searchTerms, userTag, interaction) {
-    // Trigger function to retrieve results
-    ytsrSearchYoutube(searchTerms).then(songInfo => {
-        // Check if there are results
-        if (songInfo.results == 0) {
-            // If there aren't then send an error back // FIX/
-            console.log("no results");
-        }
-        else {
-            // If there are then get first song // FIX // Maybe display results and let user pick
-            songInfo = songInfo.items[0];
-
-            // Format song info into variable
-            const song = {
-                title: songInfo.title,
-                id: songInfo.id,
-                user: userTag,
-                inPlaylist: false,
-                thumbnail: songInfo.bestThumbnail.url.slice(0, songInfo.bestThumbnail.url.indexOf('.jpg') + 4)
-            };
-
-            // Send to queue function
-            queueYouTube(song, interaction);
-        }
-        
-    })
-}
-// Extension of searchYoutube function so we wait until results arrive
-async function ytsrSearchYoutube(searchTerms) {
+async function searchYouTube(interaction, searchTerms) {
     // Add search terms
     const filters = await ytsr.getFilters(searchTerms);
 
@@ -271,19 +302,39 @@ async function ytsrSearchYoutube(searchTerms) {
     const filter = filters.get('Type').get('Video');
 
     // Option to only grab one result
-    const options = {
-    limit: 1,
-    }
+    const options = { limit: 1, safeSearch: 1};
 
     // Search with required terms
-    const searchResults = await ytsr(filter.url, options);
+    ytsr(filter.url, options).then(trackInfo => {
+        // Check if there are results
+        if (trackInfo.results == 0) {
+            // Log error
+            logger.error('Search for "' + searchTerms + '" yielded 0 results.');
 
-    // Return results
-    return searchResults;
+            // Inform user
+            interaction.reply({ content: "Search yielded no results, sorry", ephemeral: true });
+            }
+        else {
+            // If there are then get first track // FIX // Maybe display results and let user pick
+            trackInfo = trackInfo.items[0];
+
+            // Format track info into variable
+            const track = {
+                title: trackInfo.title,
+                id: trackInfo.id,
+                user: interaction.user.tag,
+                inAlbum: false,
+                thumbnail: trackInfo.bestThumbnail.url.slice(0, trackInfo.bestThumbnail.url.indexOf('.jpg') + 4)
+            };
+
+            // Send to queue function
+            queueYouTube(interaction, track);
+        }
+    })
 }
 
 // Function for adding youtube urls to the playback queue
-async function queueYouTube(song, interaction) {
+async function queueYouTube(interaction, track) {
     // Grabs current queue
     let guildQueue = queue.get(interaction.guild.id);
 
@@ -293,46 +344,84 @@ async function queueYouTube(song, interaction) {
         guildQueue = queue.get(interaction.guild.id);
     }
 
-    // Add song to queue
-    guildQueue.songs.push(song);
+    if (guildQueue.timeout) {
+        clearTimeout(guildQueue.timeout);
+        console.log("timeout cleared")
+    }
+    
+    // Add track to queue
+    if (!track.inAlbum) {
+        let index = 0;
+        let indexList = [];
+        guildQueue.tracks.forEach(track => {
+            if (track.inAlbum) {
+                indexList.push(index);
+            }
+            
+            index += 1;
+        });
 
-    // Check if there's already a song playing
-    if (!guildQueue.currentSong) {
-        // If not then start playing this song
-        playNext(guildQueue, interaction);
+        if (indexList.length > 0) {
+            guildQueue.tracks.splice(indexList[0], 0, track);
+        }
+        else {
+            guildQueue.tracks.push(track);
+        }
+    }
+    else {
+        guildQueue.tracks.push(track);
+    }
 
-        // Once done get next song
+    // Check if there's already a track playing
+    if (!guildQueue.currentTrack) {
+        // If not then start playing this track
+        playNext(guildQueue);
+
+        // Once done get next track
         guildQueue.player.on(AudioPlayerStatus.Idle, () => {
-            // Clear current song value from queue
-            guildQueue.currentSong = undefined;
+            // Clear current track value from queue
+            guildQueue.currentTrack = undefined;
 
-            // Checks if queue has songs in it
-            if (guildQueue.songs.length == 0) {
-                // If not, replace now playing message with a more fitting one
-                guildQueue.nowPlayingMsg.delete();
-                guildQueue.nowPlayingMsg = guildQueue.textChannel.send("Queue empty, disconnecting");
+            // Checks if queue has tracks in it
+            if (guildQueue.tracks.length == 0) {
+                if (guildQueue.nowPlayingMsg) {
+                    try {
+                        guildQueue.nowPlayingMsg.delete();
+                    }
+                    catch (err) {
+                        console.log("failed to delete message line 392");
+                    }
 
-                // Destroy voice connection
-                guildQueue.connection.destroy();
+                    guildQueue.nowPlayingMsg = undefined;
+                }
+                
+                async function disconnect() {
+                    // Destroy voice connection
+                    guildQueue.connection.destroy();
 
-                // Delete guild queue
-                queue.delete(interaction.guild.id);
+                    // Delete guild queue
+                    queue.delete(interaction.guild.id);
+                }
+
+                // 1min timer to disconnect
+                guildQueue.timeout = setTimeout(disconnect, 5 * 60 * 1000);
+                console.log("timeout started");
             }
             else {
-                // If it does, play the next song
+                // If it does, play the next track
                 playNext(guildQueue);
             }
         });
 
-        // Announce current playing song
+        // Announce current playing track
         guildQueue.player.on(AudioPlayerStatus.Playing, () => {
             announcePlaying(guildQueue);
         });
     }
 
-    // Reply queued song message
-    await interaction.reply("Queued song \"" + song.title + "\"");
-
-    // Log to console
-    console.log("[" + interaction.guild.name + "] " + interaction.user.tag + " queued song " + "\"" + song.title + "\"");
+    // Reply and log queued track message if single track
+    if (!track.inAlbum) {
+        await interaction.reply("Queued track \"" + track.title + "\"");
+        logger.log("info", "[" + interaction.guild.name + "] " + interaction.user.tag + " queued track " + "\"" + track.title + "\"");
+    }
 }

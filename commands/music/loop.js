@@ -6,14 +6,12 @@ const { getQueue } = require('./play.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName("stop")
-        .setDescription("Stop current audio playback and clear the queue"),
+        .setName("loop")
+        .setDescription("Toggle looping the queue"),
 
     async execute(interaction) {
         // Get voice connection
         let connection = getVoiceConnection(interaction.guild.id);
-
-        const player = connection.state.subscription.player;
 
         // Checks if bot is connected to a voice channel
         if (!connection || interaction.member.voice.channelId !== connection.joinConfig.channelId) {
@@ -24,15 +22,17 @@ module.exports = {
             // Get queue
             getQueue(interaction)
             .then(guildQueue => {
-                guildQueue.tracks = [];
+                guildQueue.loop = !guildQueue.loop;
 
-                player.stop();
-
-                // Reply to user
-                interaction.reply("Playback stopped and queue cleared");
+                if (guildQueue.loop) {
+                    interaction.reply("Enabled looping the queue");
+                }
+                else {
+                    interaction.reply("Disabled looping the queue");
+                }
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " stopped audio playback");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " toggled looping the queue");
             })
         }
     },

@@ -4,8 +4,8 @@ const logger = require ('../../logger.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName("pause")
-        .setDescription("Pause current audio playback"),
+        .setName("skip")
+        .setDescription("Skip current track"),
 
     async execute(interaction) {
         // Get voice connection
@@ -23,18 +23,21 @@ module.exports = {
             // Check if player is already paused
             if (player.state.status == 'paused') {
                 // If it is then return error
-                await interaction.reply({ content: "Audio playback is already paused", ephemeral: true });
+                await interaction.reply({ content: "Audio playback is paused", ephemeral: true });
+            }
+            else if (player.state.status == 'idle') {
+                // If it is then return error
+                await interaction.reply({ content: "There's nothing currently playing", ephemeral: true });
             }
             else {
-                // Pause audio playback
-                player.pause();
+                // Stop current audio playback to make it queue the next track
+                player.stop();
                 
-
                 // Reply to user
-                await interaction.reply("Playback paused");
+                await interaction.reply("Track skipped");
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " paused audio playback");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " skipped a track");
             }
         }
     },

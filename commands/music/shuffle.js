@@ -6,14 +6,12 @@ const { getQueue } = require('./play.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName("stop")
-        .setDescription("Stop current audio playback and clear the queue"),
+        .setName("shuffle")
+        .setDescription("Toggle shuffling the queue"),
 
     async execute(interaction) {
         // Get voice connection
         let connection = getVoiceConnection(interaction.guild.id);
-
-        const player = connection.state.subscription.player;
 
         // Checks if bot is connected to a voice channel
         if (!connection || interaction.member.voice.channelId !== connection.joinConfig.channelId) {
@@ -24,15 +22,17 @@ module.exports = {
             // Get queue
             getQueue(interaction)
             .then(guildQueue => {
-                guildQueue.tracks = [];
+                guildQueue.shuffle = !guildQueue.shuffle;
 
-                player.stop();
-
-                // Reply to user
-                interaction.reply("Playback stopped and queue cleared");
+                if (guildQueue.shuffle) {
+                    interaction.reply("Enabled shuffling the queue");
+                }
+                else {
+                    interaction.reply("Disabled shuffling the queue");
+                }
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " stopped audio playback");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " toggled shuffling the queue");
             })
         }
     },

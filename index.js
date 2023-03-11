@@ -4,6 +4,14 @@ const path = require('path');
 const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const packageJSON = require("./package.json");
 
+// Refreshes log file and saves old
+if (fs.existsSync('./logs/latest.log')) {
+    fs.renameSync('./logs/latest.log', './logs/' + Date.now() + '.log');
+}
+
+// Imports logger
+const logger = require ('./logger.js');
+
 // Imports bot token from "secrets.json" file, keep this secure
 const { token } = require('./secrets.json');
 
@@ -52,16 +60,11 @@ client.once('ready', () => {
     const guildList = client.guilds.cache.map(guild => guild.name).join(", ");
 
     // Lists Nodejs and Disordjs versions for debug purposes
-    console.log("Running Node.js version " + process.versions.node + " and Discord.js version " + packageJSON.dependencies["discord.js"] + ".");
+    logger.log("info", "Running Node.js version " + process.versions.node + " and Discord.js version " + packageJSON.dependencies["discord.js"] + ".");
 
     // Log connected
-    console.log("Successfully connected as " + client.user.tag + " to " + guildList + ".");
+    logger.log("info", "Successfully connected as " + client.user.tag + " to " + guildList + ".");
 });
-
-// Simple error catcher
-client.on('error', error => {
-    console.log(error);
-})
 
 // Command responses
 client.on('interactionCreate', async interaction => {
@@ -76,10 +79,9 @@ client.on('interactionCreate', async interaction => {
     try {
 		await command.execute(interaction);
 	}
-    // Catch error if one happens, maybe add a function to save error to log file here // FIX //
+    // Catch error if one happens
     catch (error) {
-		console.error(error);
-		await interaction.reply({ content: "Command errored out, sorry!", ephemeral: true });
+        logger.error(error);
 	}
 });
 

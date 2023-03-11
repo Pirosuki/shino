@@ -6,14 +6,12 @@ const { getQueue } = require('./play.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName("stop")
-        .setDescription("Stop current audio playback and clear the queue"),
+        .setName("clear")
+        .setDescription("Clear the queue"),
 
     async execute(interaction) {
         // Get voice connection
         let connection = getVoiceConnection(interaction.guild.id);
-
-        const player = connection.state.subscription.player;
 
         // Checks if bot is connected to a voice channel
         if (!connection || interaction.member.voice.channelId !== connection.joinConfig.channelId) {
@@ -26,14 +24,14 @@ module.exports = {
             .then(guildQueue => {
                 guildQueue.tracks = [];
 
-                player.stop();
-
                 // Reply to user
-                interaction.reply("Playback stopped and queue cleared");
+                interaction.reply("Queue cleared");
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " stopped audio playback");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " cleared the queue");
             })
+
+            
         }
     },
 };

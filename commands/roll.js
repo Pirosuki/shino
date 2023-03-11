@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
-const { logError } = require('../logging');
+const logger = require ('../logger.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -23,8 +23,8 @@ module.exports = {
         // Reply with result
         await interaction.reply(interaction.user.username + " rolled " + value + " points!");
         
-        // Log action and result to console
-        console.log("[" + interaction.guild.name + "] " + interaction.user.tag + " rolled a " + value + ".");
+        // Log action and result
+        logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " rolled a " + value + ".");
     },
 };
 

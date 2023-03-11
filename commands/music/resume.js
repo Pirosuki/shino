@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { getVoiceConnection } = require('@discordjs/voice');
+const logger = require ('../../logger.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -32,7 +33,7 @@ module.exports = {
                 await interaction.reply("Playback resumed");
 
                 // Log to console
-                console.log("[" + interaction.guild.name + "] " + interaction.user.tag + " resumed audio playback.");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " resumed audio playback");
             }
         }
     },

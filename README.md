@@ -2,18 +2,12 @@
 shino is a Discord bot for the Utter discord server.
 
 ## To do:
-- ytdl search
 - ytdl playlist search
 - spotify search -> ytdl, incl playlists.
 - Auto disconnect if no user in voice
 - Clear channel messages with confirmation
-- Now playing replaces last message with new
-- Button to pm latest song
-- /remindme
 - timer after queue runs out incase anyone wants to add another
-- Lower volume when people speak
 - /wrongsong
-- Fix streams
 
 ## Dependencies:
 shino requires [Node.js](https://nodejs.org/) v16.6.0 or higher.
