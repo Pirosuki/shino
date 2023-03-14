@@ -38,16 +38,6 @@ module.exports = {
                     adapterCreator: interaction.guild.voiceAdapterCreator,
                     /*debug: true,*/
                 });
-
-                // Temporary error fix, check https://github.com/discordjs/discord.js/issues/9185#issuecomment-1459083216
-                const networkStateChangeHandler = (oldNetworkState, newNetworkState) => {
-                    const newUdp = Reflect.get(newNetworkState, 'udp');
-                    clearInterval(newUdp?.keepAliveInterval);
-                  }
-                  connection.on('stateChange', (oldState, newState) => {
-                    Reflect.get(oldState, 'networking')?.off('stateChange', networkStateChangeHandler);
-                    Reflect.get(newState, 'networking')?.on('stateChange', networkStateChangeHandler);
-                });
             }
 
             // Grabs terms entered in command
@@ -155,12 +145,31 @@ async function createPlayer(interaction) {
 
 // Function to play the next track in queue
 async function playNext(guildQueue) {
+    let track;
     // Check whether shuffle is on
     if (guildQueue.shuffle) {
+        let notInAlbumIndex = 0;
+        let notInAlbumIndexList = [];
+        guildQueue.tracks.forEach(track => {
+            if (!track.inAlbum) {
+                notInAlbumIndexList.push(notInAlbumIndex);
+            }
+            
+            notInAlbumIndex += 1;
+        });
+
+        let randomMax;
+        if (notInAlbumIndexList.length) {
+            randomMax = notInAlbumIndexList[notInAlbumIndexList.length - 1];
+        }
+        else {
+            randomMax = guildQueue.tracks.length
+        }
         // If it is, grab a random track
         // Creates random number
+        
         let index = Math.floor(
-            Math.random() * guildQueue.tracks.length
+            Math.random() * randomMax
         )
 
         // Grabs track based on that number
@@ -191,10 +200,12 @@ async function playNext(guildQueue) {
         dlChunkSize: 0,
         bitrate: 128,
         quality: "lowestaudio",
-    });
+    })
     ytdlURL.on('error', err => {
         // catch url related errors
         logger.error(err); 
+
+        return
     });
 
     // Creates audio resource with track info
@@ -205,10 +216,18 @@ async function playNext(guildQueue) {
 
     // Plays the track
     guildQueue.player.play(resource);
-}
 
-// Function for announcing the current playing track
-async function announcePlaying(guildQueue) {
+    if (guildQueue.nowPlayingMsg) {
+        try {
+            guildQueue.nowPlayingMsg.delete();
+        }
+        catch (err) {
+            console.log("failed to delete message func playNext");
+            console.log(err);
+        }
+        guildQueue.nowPlayingMsg = undefined;
+    }
+
     // Formats track title, url and stuff into embed
     const currentTrackEmbed = new EmbedBuilder()
     .setTitle(guildQueue.currentTrack.title)
@@ -219,47 +238,69 @@ async function announcePlaying(guildQueue) {
         { name: 'Requested by', value: guildQueue.currentTrack.user }
     );
 
-    // Checks if a now playing message currently exists
-    if (guildQueue.nowPlayingMsg) {
-        // If it does, delete it
-        try {
-            guildQueue.nowPlayingMsg.delete();
-        }
-        catch (err) {
-            console.log("failed to delete message line 231");
-        }
-    }
-
     // Send a new now playing message and save it to the guild queue
     guildQueue.nowPlayingMsg = await guildQueue.textChannel.send({ embeds: [currentTrackEmbed] });
 }
 
 async function albumYoutube(interaction, url) {
-    try {
-        interaction.reply("am attempting, pls no break :)")
+    async function queueAlbumTrack(trackInfo){
+        // Send to queue function
+        if (trackInfo.isPlayable) {
+            // Anti NEFFEX and switching vocals check
+            if (trackInfo.title.toUpperCase().includes("NEFFEX") || trackInfo.title.toUpperCase().includes("SWITCHING VOCAL")) {
+                return
+            }
+
+            // Format track info into variable
+            const track = {
+                title: trackInfo.title,
+                id: trackInfo.id,
+                user: interaction.user.tag,
+                inAlbum: true,
+                thumbnail: trackInfo.bestThumbnail.url.slice(0, trackInfo.bestThumbnail.url.indexOf('.jpg') + 4)
+            };
+
+            queueYouTube(interaction, track);
+        }
+    }
+
+    ytpl(url, { limit: 20 })
+    .then(albumInfo => {
+        interaction.reply("Queueing album \"" + albumInfo.title + "\"");
+        logger.log("info", "[" + interaction.guild.name + "] " + interaction.user.tag + " queued album \"" + albumInfo.title + "\"");
+
+        albumInfo.items.forEach(trackInfo => {
+            queueAlbumTrack(trackInfo);
+        })
+
         ytpl(url, { limit: Infinity })
         .then(albumInfo => {
+            let n = 0;
             albumInfo.items.forEach(trackInfo => {
-                // Send to queue function
-                if (trackInfo.isPlayable) {
-                    // Format track info into variable
-                    const track = {
-                        title: trackInfo.title,
-                        id: trackInfo.id,
-                        user: interaction.user.tag,
-                        inAlbum: true,
-                        thumbnail: trackInfo.bestThumbnail.url.slice(0, trackInfo.bestThumbnail.url.indexOf('.jpg') + 4)
-                    };
+                if (n < 20) { n++; return }
 
-                    queueYouTube(interaction, track);
-                }
+                queueAlbumTrack(trackInfo);
             });
-        })
-    }
-    catch(error) {
-        // Log error
-        console.error(error);
-    }    
+        });
+    })
+    .catch(err => {
+        let errorResponse;
+
+        if (err == "Error: API-Error: The playlist does not exist.") {
+            errorResponse = "Couldn't queue playlist, it's probably private";
+        }
+        else if (err == "Error: Unknown Playlist") {
+            errorResponse = "Couldn't find a playlist with that url";
+        }
+        else {
+            errorResponse = "Something went wrong, more info found in logs";
+            // Log full error due to it being unknown
+            logger.error(err);
+        }
+
+        // Inform user
+        interaction.reply({ content: errorResponse, ephemeral: true });
+    })
 }
 
 async function trackYoutube(interaction, url) {
@@ -279,11 +320,34 @@ async function trackYoutube(interaction, url) {
             user: interaction.user.tag,
             inAlbum: false,
             thumbnail: thumbnail.url
-        };
+        }
+
     
         // Send to queue function
         queueYouTube(interaction, track);
     })
+    .catch(err => {
+        let errorResponse;
+
+        if (err.statusCode == 410) {
+            errorResponse = "Couldn't queue video, it's probably age restricted";
+        }
+        else if (err == "Error: This is a private video. Please sign in to verify that you may see it.") {
+            errorResponse = "Couldn't queue video due to it being private";
+        }
+        else if (err == "Error: Video unavailable") {
+            errorResponse = "Couldn't find a video with that url";
+        }
+        else {
+            errorResponse = "Something went wrong, more info found in logs";
+            // Log full error due to it being unknown
+            logger.error(err);
+        }
+
+        // Inform user
+        interaction.reply({ content: errorResponse, ephemeral: true });
+    })
+
     .catch(error => {
         // Log error
         logger.error(error);
@@ -351,18 +415,18 @@ async function queueYouTube(interaction, track) {
     
     // Add track to queue
     if (!track.inAlbum) {
-        let index = 0;
-        let indexList = [];
+        let inAlbumIndex = 0;
+        let inAlbumIndexList = [];
         guildQueue.tracks.forEach(track => {
             if (track.inAlbum) {
-                indexList.push(index);
+                inAlbumIndexList.push(inAlbumIndex);
             }
             
-            index += 1;
+            inAlbumIndex += 1;
         });
 
-        if (indexList.length > 0) {
-            guildQueue.tracks.splice(indexList[0], 0, track);
+        if (inAlbumIndexList.length) {
+            guildQueue.tracks.splice(inAlbumIndexList[0], 0, track);
         }
         else {
             guildQueue.tracks.push(track);
@@ -382,25 +446,36 @@ async function queueYouTube(interaction, track) {
             // Clear current track value from queue
             guildQueue.currentTrack = undefined;
 
-            // Checks if queue has tracks in it
+            // Checks if queue has tracks in it and triggers disconnect timer if not
             if (guildQueue.tracks.length == 0) {
-                if (guildQueue.nowPlayingMsg) {
-                    try {
-                        guildQueue.nowPlayingMsg.delete();
-                    }
-                    catch (err) {
-                        console.log("failed to delete message line 392");
+                async function disconnect() {
+                    if (guildQueue.nowPlayingMsg) {
+                        try {
+                            guildQueue.nowPlayingMsg.delete();
+                        }
+                        catch (err) {
+                            console.log("failed to delete message func disconnect");
+                        }
+    
+                        guildQueue.nowPlayingMsg = undefined;
                     }
 
-                    guildQueue.nowPlayingMsg = undefined;
-                }
-                
-                async function disconnect() {
                     // Destroy voice connection
                     guildQueue.connection.destroy();
 
                     // Delete guild queue
                     queue.delete(interaction.guild.id);
+                }
+
+                if (guildQueue.nowPlayingMsg) {
+                    try {
+                        guildQueue.nowPlayingMsg.delete();
+                    }
+                    catch (err) {
+                        console.log("failed to delete message func queueYoutube");
+                    }
+
+                    guildQueue.nowPlayingMsg = undefined;
                 }
 
                 // 1min timer to disconnect
@@ -412,16 +487,11 @@ async function queueYouTube(interaction, track) {
                 playNext(guildQueue);
             }
         });
-
-        // Announce current playing track
-        guildQueue.player.on(AudioPlayerStatus.Playing, () => {
-            announcePlaying(guildQueue);
-        });
     }
 
     // Reply and log queued track message if single track
     if (!track.inAlbum) {
         await interaction.reply("Queued track \"" + track.title + "\"");
-        logger.log("info", "[" + interaction.guild.name + "] " + interaction.user.tag + " queued track " + "\"" + track.title + "\"");
+        logger.log("info", "[" + interaction.guild.name + "] " + interaction.user.tag + " queued track \"" + track.title + "\"");
     }
 }
