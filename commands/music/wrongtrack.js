@@ -25,7 +25,7 @@ module.exports = {
                 let index = 0;
                 let indexList = [];
                 guildQueue.tracks.forEach(track => {
-                    if (track.user = interaction.user.tag) {
+                    if (track.user == interaction.user.username && !track.inAlbum) {
                         indexList.push(index);
                     }
                     
@@ -42,7 +42,7 @@ module.exports = {
                     interaction.reply("Removed track \"" + trackTitle + "\" from the queue.");
 
                     // Log to console
-                    logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " unadded a track");
+                    logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " unadded a track");
                 }
                 else {
                     interaction.reply({ content: "Couldn't find the track, sorry", ephemeral: true });

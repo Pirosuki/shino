@@ -1,7 +1,16 @@
-const fs = require('fs');const { REST } = require('@discordjs/rest');
+const fs = require('fs');
+const { REST } = require('@discordjs/rest');
 const path = require('path');
 const { Routes } = require('discord-api-types/v9');
-const { clientId, guildId, token } = require('./secrets.json');
+
+// Imports logger
+const logger = require ('./logger.js');
+
+let secretsPath = "./config/secrets.json";
+if (!fs.existsSync(secretsPath)) {
+    throw("failed to retrieve secrets, make sure that /config contains both secrets.json and config.json");
+}
+const { clientId, guildId, token } = require(secretsPath);
 
 // Variable for holding commands
 let commands = [];

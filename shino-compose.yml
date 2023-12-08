@@ -1,0 +1,16 @@
+---
+# sudo docker load -i shino.tar
+# sudo docker compose -f shino-compose.yml -p shino up -d --no-start
+version: "3"
+
+services:
+  shino:
+    container_name: shino
+    image: "piro/shino"
+    restart: unless-stopped
+    volumes:
+      - "config:/usr/src/shino/config"
+      - "logs:/usr/src/shino/logs"
+volumes:
+  config:
+  logs:

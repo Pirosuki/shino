@@ -32,7 +32,7 @@ module.exports = {
                 }
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " toggled looping the queue");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " toggled looping the queue");
             })
         }
     },

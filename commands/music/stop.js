@@ -32,7 +32,7 @@ module.exports = {
                 interaction.reply("Playback stopped and queue cleared");
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " stopped audio playback");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " stopped audio playback");
             })
         }
     },

@@ -37,7 +37,7 @@ module.exports = {
                 await interaction.reply("Track skipped");
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " skipped a track");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " skipped a track");
             }
         }
     },

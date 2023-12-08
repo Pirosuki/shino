@@ -28,7 +28,7 @@ module.exports = {
                 interaction.reply("Queue cleared");
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " cleared the queue");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " cleared the queue");
             })
 
             

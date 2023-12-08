@@ -1,3 +1,14 @@
+// Imports logger
+const logger = require ('./logger.js');
+
+// Check if correct version of node
+nodeVerRegEx = new RegExp('^20.*');
+if (!(nodeVerRegEx.test(process.versions.node))) {
+    logger.error("Invalid node version, please install node 20")
+    return
+}
+
+
 // Misc imports
 const fs = require('fs');
 const path = require('path');
@@ -9,11 +20,14 @@ if (fs.existsSync('./logs/latest.log')) {
     fs.renameSync('./logs/latest.log', './logs/' + Date.now() + '.log');
 }
 
-// Imports logger
-const logger = require ('./logger.js');
+let configMap = new Map();
 
 // Imports bot token from "secrets.json" file, keep this secure
-const { token } = require('./secrets.json');
+let secretsPath = "./config/secrets.json";
+if (!fs.existsSync(secretsPath)) {
+    throw("failed to retrieve secrets, make sure that /config contains both secrets.json and config.json");
+}
+const { token } = require(secretsPath);
 
 // Bot client, check intents if behaving unexpectedly
 const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]});
@@ -56,6 +70,16 @@ for (const file of getCommands('./commands')) {
 
 // Bot connected and ready trigger
 client.once('ready', () => {
+    // Imports and or creates config files for each guild
+    client.guilds.cache.forEach(guild => {
+        let configPath = './config/guilds/' + guild.id + '.json';
+        if (!fs.existsSync(configPath)) {
+            fs.writeFileSync(JSON.stringify('{"path": "' + configPath + '"}', null, 4), configPath);
+        }
+        let guildConfig = require(configPath);
+        configMap.set(guild.id, guildConfig);
+    })
+
     // Puts list of connected guilds into readable list
     const guildList = client.guilds.cache.map(guild => guild.name).join(", ");
 
@@ -68,22 +92,34 @@ client.once('ready', () => {
 
 // Command responses
 client.on('interactionCreate', async interaction => {
-    // Quick exit if there's no matching command
-    if (!interaction.isCommand()) return;
+    let command = client.commands.get(interaction.commandName);
 
-    // ^
-    const command = client.commands.get(interaction.commandName);
+    // Quick exit if there's no matching command
     if (!command) return;
+    
+    if (interaction.isAutocomplete()) {
+        // Attempts to autocomplete command if supported
+        try {
+            await command.autocomplete(interaction, configMap.get(interaction.guildId));
+        }
+        // Catch error if something happens
+        catch (error) {
+            logger.error(error);
+        }
+    }
+
+    // Second check
+    if (!interaction.isCommand()) return;
 
     // Attempts to execute function of specific command
     try {
-		await command.execute(interaction);
+		await command.execute(interaction, configMap.get(interaction.guildId));
 	}
-    // Catch error if one happens
+    // Catch error if something happens
     catch (error) {
         logger.error(error);
 	}
 });
 
 // This line starts the bot
-client.login(token)
+client.login(token);

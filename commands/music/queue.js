@@ -56,7 +56,7 @@ module.exports = {
                 }
             });
             // Log to console
-            logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " requested queue");
+            logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " requested queue");
         }
     },
 };

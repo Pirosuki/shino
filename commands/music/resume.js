@@ -33,7 +33,7 @@ module.exports = {
                 await interaction.reply("Playback resumed");
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " resumed audio playback");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " resumed audio playback");
             }
         }
     },

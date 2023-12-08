@@ -1,2 +1,8 @@
-logs/
-secrets.json
+logs
+node_modules
+.vscode
+config/guilds
+config/secrets.json
+test*.js
+Dockerfile
+.dockerignore

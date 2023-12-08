@@ -6,10 +6,9 @@ shino is a Discord bot for the Utter discord server.
 - Auto disconnect if no user in voice
 - Clear channel messages with confirmation
 - Auto clear queue if manually disconnected
-- Remove double nowPlaying message on resume timeout
 - Have stop command remove queue completely and disconnect bot
-- /shuffle shuffle only playlist if playlist songs in queue
 - 410 error on playlists
+- spin the wheel command
 
 ## Dependencies:
 shino requires [Node.js](https://nodejs.org/) v16.6.0 or higher.

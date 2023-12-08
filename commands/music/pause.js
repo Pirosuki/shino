@@ -34,7 +34,7 @@ module.exports = {
                 await interaction.reply("Playback paused");
 
                 // Log to console
-                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.tag + " paused audio playback");
+                logger.log('info', "[" + interaction.guild.name + "] " + interaction.user.username + " paused audio playback");
             }
         }
     },
