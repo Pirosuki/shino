@@ -28,6 +28,11 @@ module.exports = {
 
                 player.stop();
 
+                // Unpause if paused because otherwise the disconnect timer won't start
+                if (player.state.status == 'paused') {
+                    player.unpause();
+                }
+
                 // Reply to user
                 interaction.reply("Playback stopped and queue cleared");
 

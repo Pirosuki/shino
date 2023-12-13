@@ -139,7 +139,7 @@ async function createPlayer(interaction, config) {
     // Create player
     const player = createAudioPlayer({
         behaviors: {
-            noSubscriber: NoSubscriberBehavior.Stop,
+            noSubscriber: NoSubscriberBehavior.Pause,
         },
     });
 
@@ -166,45 +166,70 @@ async function createPlayer(interaction, config) {
     // Adds queue to queue variable
     queue.set(interaction.guildId, guildQueue);
 
-    // Watch for idle
-    guildQueue.player.on(AudioPlayerStatus.Idle, () => {
-        idleTrigger(interaction, config, guildQueue)
-    });
+    guildQueue.player.on('stateChange', (oldState, newState) => {
+        if (newState.status == 'playing') {
+            // Clear disconnect timer
+            if (guildQueue.timeout) {
+                clearTimeout(guildQueue.timeout);
+            }
 
-    // Watch for playing
-    guildQueue.player.on(AudioPlayerStatus.Playing, () => {
-        // Clear disconnect timer
-        if (guildQueue.timeout) {
-            clearTimeout(guildQueue.timeout);
+            // Set bot status to playing
+            if (interaction.guildId = '423159363491069953') {
+                if (interaction.guildId = '423159363491069953') {
+                    interaction.client.user.setPresence({
+                        activities: [{ name: guildQueue.currentTrack.title, type: ActivityType.Streaming, url: 'https://www.youtube.com/watch?v=' + guildQueue.currentTrack.id + '/'}]
+                    })
+                }
+            }
+
+            // Set playing status and send embed if not previously paused
+            if (!(oldState.status == 'paused' || oldState.status == 'autopaused')) {
+                // Formats track title, url and stuff into embed
+                const currentTrackEmbed = new EmbedBuilder()
+                .setTitle(guildQueue.currentTrack.title)
+                .setURL('https://youtu.be/' + guildQueue.currentTrack.id + '/')
+                .setThumbnail(guildQueue.currentTrack.thumbnail)
+                .addFields(
+                    { name: 'Requested by', value: guildQueue.currentTrack.user }
+                );
+
+                // Send a new now playing message and save it to the guild queue
+                guildQueue.textChannel.send({ embeds: [currentTrackEmbed] })
+                .then (nowPlayingMsg => {
+                    guildQueue.nowPlayingMsg = nowPlayingMsg; // shino gets mad because the promise is sometimes pending when trying to delete the message, this might help?
+                })
+            }
+        }
+        else if (newState.status == 'idle') {
+            idleTrigger(interaction, config, guildQueue, newState);
         }
 
-        // Formats track title, url and stuff into embed
-        const currentTrackEmbed = new EmbedBuilder()
-        .setTitle(guildQueue.currentTrack.title)
-        .setURL('https://youtu.be/' + guildQueue.currentTrack.id + '/')
-        .setThumbnail(guildQueue.currentTrack.thumbnail)
-        .addFields(
-            { name: 'Requested by', value: guildQueue.currentTrack.user }
-        );
-
-        // Send a new now playing message and save it to the guild queue
-        guildQueue.textChannel.send({ embeds: [currentTrackEmbed] })
-        .then (nowPlayingMsg => {
-            guildQueue.nowPlayingMsg = nowPlayingMsg; // shino gets mad because the promise is sometimes pending when trying to delete the message, this might help?
-        })
-
-        if (interaction.guildId = '423159363491069953') {
+        else if (newState.status == 'paused' || newState.status == 'autopaused') {
             if (interaction.guildId = '423159363491069953') {
-                interaction.client.user.setPresence({
-                    activities: [{ name: guildQueue.currentTrack.title, type: ActivityType.Streaming, url: 'https://www.youtube.com/watch?v=' + guildQueue.currentTrack.id + '/'}]
-                })
+                if (interaction.guildId = '423159363491069953') {
+                    interaction.client.user.setPresence({
+                        activities: [{ name: "[Paused] " + guildQueue.currentTrack.title, type: ActivityType.Streaming, url: 'https://www.youtube.com/watch?v=' + guildQueue.currentTrack.id + '/'}]
+                    })
+                }
+            }
+        }
+    });
+
+    connection.on('stateChange', (oldState, newState) => {
+        // Try to rejoin on disconnect
+        if (newState.status == 'disconnected') {
+            try {
+                connection.rejoin();
+            }
+            catch (err) {
+                logger.error(err);
             }
         }
     });
 }
 
 // Function to trigger when idle
-async function idleTrigger(interaction, config, guildQueue) {
+async function idleTrigger(interaction, config, guildQueue, newState) {
     // Set current status to idle
     if (interaction.guildId = '423159363491069953') {
         interaction.client.user.setPresence({ activities: null });
@@ -227,11 +252,10 @@ async function idleTrigger(interaction, config, guildQueue) {
 
     // Checks if queue has tracks in it and triggers disconnect timer if not
     if (guildQueue.tracks.length == 0) {
-        // Start disconnect timer
+        // Disconnect after timer
         guildQueue.timeout = setTimeout(disconnect, 5 * 60 * 1000);
 
         async function disconnect() {
-            
             try {
                 // Destroy voice connection
                 guildQueue.connection.destroy();
@@ -239,7 +263,7 @@ async function idleTrigger(interaction, config, guildQueue) {
             catch (err) {
                 logger.error(err);
             }
-
+        
             // Delete guild queue
             queue.delete(interaction.guildId);
         }
@@ -373,10 +397,19 @@ async function albumYoutube(interaction, config, url) {
         });
     })
     .catch(err => {
-        logger.error(err);
+        let errorMessage;
+
+        if (err.message.includes("The playlist does not exist") || err.message.includes("Cannot read properties of undefined")) {
+            errorMessage = "Album is either unavailable or doesn't exist";
+        }
+        else {
+            errorMessage = "Brokie";
+
+            logger.error(err);
+        }
 
         // Inform user
-        interaction.reply({ content: "brokie", ephemeral: true });
+        interaction.reply({ content: errorMessage, ephemeral: true });
     })
 }
 
@@ -403,8 +436,8 @@ async function trackYoutube(interaction, config, url) {
     .catch(err => {
         let errorMessage;
 
-        if (err.message.includes("This is not a YouTube Watch URL")) {
-            errorMessage = "Invalid YouTube URL";
+        if (err.message.includes("This is not a YouTube Watch URL") || err.message.includes("Video unavailable")) {
+            errorMessage = "Track is either unavailable or doesn't exist";
         }
         else if (err.message.includes('Sign in to confirm your age')) {
             errorMessage = "Track is age restricted";
